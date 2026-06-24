@@ -4,7 +4,7 @@
 # cron request. Everything sensitive (config, logs, helper scripts) is blocked.
 
 # Block files containing credentials or runtime output
-<FilesMatch "(^config.*\.php$|\.log$|^\.htaccess$)">
+<FilesMatch "(^config.*\.php$|\.log$|\.log\.1$|\.lock$|^\.htaccess$)">
     # Apache 2.4
     <IfModule mod_authz_core.c>
         Require all denied

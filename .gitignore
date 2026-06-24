@@ -1,8 +1,12 @@
 # Local configuration with credentials — never commit
 config.php
 
-# Runtime log written by the script
+# Runtime log written by the script (and its rotated copy)
 mirror.log
+mirror.log.1
+
+# Lock file used to prevent overlapping cron runs
+mirror.lock
 
 # OS / editor cruft
 .DS_Store

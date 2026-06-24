@@ -54,13 +54,13 @@ do {
         $cid       = $post['cid'] ?? '';
         $createdAt = $post['value']['createdAt'] ?? date('c');
 
-        if (isAlreadyMirrored($uri)) {
+        if (getRecord($uri) !== null) {
             $skipped++;
             continue;
         }
 
-        // In DB eintragen, target_uri/target_cid bleiben NULL → "geseedet, nicht gespiegelt"
-        recordMirror($uri, $cid, $createdAt, null, null);
+        // Als geseedet markieren (status = 'seeded', wird nie gespiegelt)
+        markSeeded($uri, $cid, $createdAt);
         $total++;
     }
 

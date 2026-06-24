@@ -26,12 +26,18 @@ Pro Durchlauf passiert Folgendes:
 1. **Authentifizierung** auf beiden PDSen via `com.atproto.server.createSession`
 2. **Abruf** der letzten Posts vom Quell-PDS via `com.atproto.repo.listRecords`
 3. **Filterung**: Replies werden übersprungen, nur Top-Level-Posts durchgelassen
-4. **Abgleich** gegen die MySQL-Tabelle `mirror_posts`, ob der Post bereits gespiegelt wurde
+4. **Abgleich** gegen die MySQL-Tabelle `mirror_posts`. Neue Posts werden per Cursor-Pagination eingesammelt (auch größere Bursts werden so in einem Lauf erfasst), und zuvor fehlgeschlagene Posts werden bis zu `max_attempts` erneut versucht
 5. **Embeds re-uploaden**: Falls der Post Bilder, Videos oder Link-Card-Thumbnails enthält, wird der Blob vom Quell-PDS geladen (`com.atproto.sync.getBlob`), auf den Ziel-PDS hochgeladen (`com.atproto.repo.uploadBlob`) und die Referenzen im Record ersetzt
 6. **Post erstellen** auf dem Ziel-PDS via `com.atproto.repo.createRecord`
-7. **Protokollieren** des Ergebnisses in MySQL
+7. **Protokollieren** des Ergebnisses in MySQL inkl. Status je Post (`seeded` / `mirrored` / `failed`)
 
-Unterstützte Embed-Typen: Bilder, Videos, External Links (mit Thumbnail), Record-with-Media (z.B. Zitat-Posts mit Bildern).
+Unterstützte Embed-Typen: Bilder, Videos (inkl. Untertitel-Tracks), External Links (mit Thumbnail), Record-with-Media (Zitat-Posts mit Bildern **oder** Video).
+
+### Zuverlässigkeit
+
+- **Kein Datenverlust bei transienten Fehlern.** Ein fehlgeschlagener Lauf (Timeout, Rate-Limit, Blob-Problem) wird als `failed` vermerkt und im nächsten Lauf erneut versucht, bis zu `max_attempts` – er wird nicht stillschweigend verworfen.
+- **Keine Doppel-Posts.** Ein `flock`-basierter Lock verhindert, dass zwei überlappende Cron-Läufe denselben Post doppelt spiegeln.
+- **Rate-Limit-bewusst.** `HTTP 429` und transiente Verbindungsfehler werden mit kurzem Backoff direkt erneut versucht.
 
 ## Dateien
 
@@ -41,9 +47,9 @@ Unterstützte Embed-Typen: Bilder, Videos, External Links (mit Thumbnail), Recor
 | `config.example.php` | Konfigurationsvorlage – nach `config.php` kopieren |
 | `seed.php` | Einmal-Script: markiert alle bestehenden Posts als geseedet |
 | `test.php` | Verbindungstest für DB und beide PDSe |
-| `.htaccess` | Sperrt `config.php`, Logs und Hilfsscripts per HTTP |
+| `.htaccess` | Sperrt `config.php`, Logs, Lockdatei und Hilfsscripts per HTTP |
 
-`config.php` und `mirror.log` sind per `.gitignore` ausgeschlossen und werden nie committet.
+`config.php`, `mirror.log` und `mirror.lock` sind per `.gitignore` ausgeschlossen und werden nie committet.
 
 ## Voraussetzungen
 
@@ -108,12 +114,15 @@ Die Tabelle `mirror_posts` wird beim ersten Lauf automatisch angelegt. Struktur:
 |------|-----------|
 | `source_uri` | AT-URI des Original-Posts |
 | `source_cid` | Content-Hash des Original-Posts |
-| `target_uri` | AT-URI des gespiegelten Posts (`NULL` bei geseedeten) |
+| `target_uri` | AT-URI des gespiegelten Posts (`NULL` bis erfolgreich gespiegelt) |
 | `target_cid` | Content-Hash des gespiegelten Posts |
+| `status` | `seeded`, `mirrored` oder `failed` |
+| `attempts` | Anzahl der bisherigen Spiegelversuche (steuert das Retry-Limit) |
+| `last_error` | Letzte Fehlermeldung bei fehlgeschlagenem Versuch (zur Diagnose) |
 | `created_at` | Erstellungszeitpunkt des Original-Posts |
-| `mirrored_at` | Zeitpunkt der Spiegelung |
+| `mirrored_at` | Zeitpunkt des letzten Versuchs |
 
-Geseedete Posts (aus `seed.php`) erkennt man an `target_uri = NULL`.
+Geseedete Posts (aus `seed.php`) haben `status = 'seeded'`; Posts, die ihre Versuche aufgebraucht haben, stehen auf `status = 'failed'` mit dem Grund in `last_error`.
 
 ## Einschränkungen
 

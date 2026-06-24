@@ -26,12 +26,18 @@ Each run does the following:
 1. **Authenticate** on both PDSes via `com.atproto.server.createSession`
 2. **Fetch** the most recent posts from the source PDS via `com.atproto.repo.listRecords`
 3. **Filter**: replies are skipped, only top-level posts pass through
-4. **Deduplicate** against the MySQL table `mirror_posts` to check whether a post was already mirrored
+4. **Deduplicate** against the MySQL table `mirror_posts`. New posts are collected with cursor pagination (so larger bursts are caught in one run), and posts that previously failed are retried until `max_attempts` is reached
 5. **Re-upload embeds**: if a post contains images, videos or link-card thumbnails, the blob is fetched from the source PDS (`com.atproto.sync.getBlob`), uploaded to the target PDS (`com.atproto.repo.uploadBlob`), and the references in the record are swapped out
 6. **Create** the post on the target PDS via `com.atproto.repo.createRecord`
-7. **Log** the result in MySQL
+7. **Log** the result in MySQL, tracking each post's status (`seeded` / `mirrored` / `failed`)
 
-Supported embed types: images, videos, external links (with thumbnail), and record-with-media (e.g. quote posts that also have images).
+Supported embed types: images, videos (including caption tracks), external links (with thumbnail), and record-with-media (quote posts that also have images **or** video).
+
+### Reliability
+
+- **No data loss on transient errors.** A failed mirror (timeout, rate limit, blob hiccup) is recorded as `failed` and retried on the next run, up to `max_attempts` — it is not silently abandoned.
+- **No double posts.** A `flock`-based lock prevents two overlapping cron runs from mirroring the same post twice.
+- **Rate-limit aware.** `HTTP 429` and transient connection errors are retried in-process with a short backoff.
 
 ## Files
 
@@ -41,9 +47,9 @@ Supported embed types: images, videos, external links (with thumbnail), and reco
 | `config.example.php` | Configuration template — copy to `config.php` |
 | `seed.php` | One-off script: marks all existing posts as already seeded |
 | `test.php` | Connection test for the database and both PDSes |
-| `.htaccess` | Blocks `config.php`, logs and helper scripts over HTTP |
+| `.htaccess` | Blocks `config.php`, logs, the lock file and helper scripts over HTTP |
 
-`config.php` and `mirror.log` are git-ignored and never committed.
+`config.php`, `mirror.log` and `mirror.lock` are git-ignored and never committed.
 
 ## Requirements
 
@@ -108,12 +114,15 @@ The `mirror_posts` table is created automatically on the first run. Structure:
 |--------|---------|
 | `source_uri` | AT-URI of the original post |
 | `source_cid` | Content hash of the original post |
-| `target_uri` | AT-URI of the mirrored post (`NULL` for seeded entries) |
+| `target_uri` | AT-URI of the mirrored post (`NULL` until successfully mirrored) |
 | `target_cid` | Content hash of the mirrored post |
+| `status` | `seeded`, `mirrored` or `failed` |
+| `attempts` | Number of mirror attempts so far (drives the retry limit) |
+| `last_error` | Last error message for a failed attempt (for debugging) |
 | `created_at` | Creation timestamp of the original post |
-| `mirrored_at` | Timestamp of the mirroring |
+| `mirrored_at` | Timestamp of the last attempt |
 
-Seeded posts (from `seed.php`) are identifiable by `target_uri = NULL`.
+Seeded posts (from `seed.php`) have `status = 'seeded'`; posts that exhausted their retries have `status = 'failed'` with the reason in `last_error`.
 
 ## Limitations
 
