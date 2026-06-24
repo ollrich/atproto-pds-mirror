@@ -1,5 +1,7 @@
 # ATProto PDS Mirror
 
+<p align="right"><b>English</b> · <a href="README.de.md">Deutsch</a></p>
+
 <p align="center">
   <img src="image.png" alt="Mirroring posts from one AT Protocol PDS to another" width="420">
 </p>
