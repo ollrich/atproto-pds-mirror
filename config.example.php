@@ -16,7 +16,7 @@ return [
 
     // Ziel-PDS (wsocial)
     'target' => [
-        'pds'      => 'https://wsocial.eu',
+        'pds'      => 'https://pds.wsocial.network',
         'handle'   => 'eichhof.me',            // dein Handle auf wsocial
         'password' => 'DEIN_APP_PASSWORD',
     ],
