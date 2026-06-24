@@ -1,0 +1,9 @@
+# Local configuration with credentials — never commit
+config.php
+
+# Runtime log written by the script
+mirror.log
+
+# OS / editor cruft
+.DS_Store
+*.swp

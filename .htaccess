@@ -1,0 +1,31 @@
+# ATProto PDS Mirror — restrict HTTP access on shared hosting.
+#
+# mirror.php must stay reachable so the host can trigger it via an HTTP
+# cron request. Everything sensitive (config, logs, helper scripts) is blocked.
+
+# Block files containing credentials or runtime output
+<FilesMatch "(^config.*\.php$|\.log$|^\.htaccess$)">
+    # Apache 2.4
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    # Apache 2.2
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Deny from all
+    </IfModule>
+</FilesMatch>
+
+# Block the one-off helper scripts from being run over the web
+<FilesMatch "^(seed|test)\.php$">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Deny from all
+    </IfModule>
+</FilesMatch>
+
+# Don't expose a directory listing
+Options -Indexes
