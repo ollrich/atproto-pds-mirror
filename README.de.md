@@ -13,6 +13,9 @@
 
 Spiegelt Top-Level-Posts von einem [AT Protocol](https://atproto.com) PDS zu einem anderen. Geschrieben für den Anwendungsfall `eurosky.social` → `wsocial.eu`, funktioniert aber mit beliebigen ATProto-PDS-Instanzen.
 
+> [!NOTE]
+> Dies ist ein Machbarkeitstest / Proof of Concept, kein fertiges Produkt. Es hat vermutlich keinen echten praktischen Nutzen – eher zum Ausprobieren und Lernen als zum Verlassen darauf gedacht.
+
 ## Warum
 
 Wer Konten auf mehreren AT-Protocol-Instanzen betreibt, will dort nicht manuell doppelt posten. Dieses Script überwacht einen Quell-PDS per Cronjob und erstellt neue Posts automatisch auf dem Ziel-PDS. Replies und Reposts werden ignoriert, nur eigene Top-Level-Posts werden gespiegelt.

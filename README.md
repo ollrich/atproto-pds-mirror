@@ -13,6 +13,9 @@
 
 Mirror top-level posts from one [AT Protocol](https://atproto.com) PDS to another. Built for the `eurosky.social` → `wsocial.eu` use case, but works with any pair of ATProto PDS instances.
 
+> [!NOTE]
+> This is a proof-of-concept / feasibility experiment, not a polished product. It probably has no real practical use — treat it as something to learn from and tinker with rather than rely on.
+
 ## Why
 
 If you run accounts on more than one AT Protocol instance, you probably don't want to manually cross-post everything. This script watches a source PDS on a schedule and recreates new posts automatically on a target PDS. Replies and reposts are ignored — only your own top-level posts get mirrored.
